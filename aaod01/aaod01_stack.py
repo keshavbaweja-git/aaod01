@@ -3,7 +3,8 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
     aws_autoscaling as autoscaling,
-    aws_ec2 as ec2
+    aws_ec2 as ec2,
+    aws_iam as iam
 )
 from constructs import Construct
 
@@ -14,25 +15,41 @@ class Aaod01Stack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         vpc = ec2.Vpc(self, "VPC",
+                      vpc_name="Aaod01",
                       cidr="10.0.0.0/16")
 
         cluster = ecs.Cluster(self, "Cluster",
+                              cluster_name="Aaod01",
                               vpc=vpc)
 
+        role = iam.Role(
+            self, "ECSInstanceRole",
+            assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AmazonEC2ContainerServiceforEC2Role"),
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AmazonEC2RoleforSSM")
+            ]
+        )
+
         auto_scaling_group = autoscaling.AutoScalingGroup(self, "ASG",
+                                                          auto_scaling_group_name="Aaod01",
                                                           vpc=vpc,
                                                           instance_type=ec2.InstanceType(
                                                               "t2.micro"),
+                                                          role=role,
                                                           machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
                                                           min_capacity=0,
-                                                          max_capacity=10
+                                                          max_capacity=10,
                                                           )
 
-        cluster.add_asg_capacity_provider(ecs.AsgCapacityProvider(self, "AsgCapacityProvider",
+        cluster.add_asg_capacity_provider(ecs.AsgCapacityProvider(self, "AsgCapacityProvider", capacity_provider_name="Aaod01",
                                                                   auto_scaling_group=auto_scaling_group,
                                                                   enable_managed_scaling=True))
 
-        ecs_patterns.ApplicationLoadBalancedFargateService(self, "Service01",
+        ecs_patterns.ApplicationLoadBalancedFargateService(self, "FargateService01",
+                                                           service_name="FargateService01",
                                                            cluster=cluster,
                                                            memory_limit_mib=1024,
                                                            desired_count=3,
@@ -42,3 +59,15 @@ class Aaod01Stack(Stack):
                                                                    "amazon/amazon-ecs-sample")
                                                            )
                                                            )
+
+        ecs_patterns.ApplicationLoadBalancedEc2Service(self, "EC2Service01",
+                                                       service_name="EC2Service01",
+                                                       cluster=cluster,
+                                                       memory_limit_mib=1024,
+                                                       desired_count=3,
+                                                       cpu=512,
+                                                       task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
+                                                           image=ecs.ContainerImage.from_registry(
+                                                               "amazon/amazon-ecs-sample")
+                                                       )
+                                                       )
