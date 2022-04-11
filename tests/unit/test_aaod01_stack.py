@@ -5,6 +5,8 @@ from aaod01.aaod01_stack import Aaod01Stack
 
 # example tests. To run these tests, uncomment this file along with the example
 # resource in aaod01/aaod01_stack.py
+
+
 def test_sqs_queue_created():
     app = core.App()
     stack = Aaod01Stack(app, "aaod01")
