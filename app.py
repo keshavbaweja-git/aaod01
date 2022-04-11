@@ -8,7 +8,7 @@ from aaod01.aaod01_stack import Aaod01Stack
 
 app = cdk.App()
 Aaod01Stack(app, "Aaod01Stack",
-            env=cdk.Environment(account='646297494209', region='us-west-2'),
+            env=cdk.Environment(account='X', region='us-west-2'),
             )
 
 app.synth()
