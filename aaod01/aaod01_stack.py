@@ -66,7 +66,9 @@ class Aaod01Stack(Stack):
         task_definition.add_container("web",
                                       image=ecs.ContainerImage.from_registry(
                                           "amazon/amazon-ecs-sample"),
-                                      memory_reservation_mib=256
+                                      memory_reservation_mib=256,
+                                      port_mappings=[
+                                          ecs.PortMapping(container_port=80)]
                                       )
 
         ecs.Ec2Service(self, "EC2Service",
