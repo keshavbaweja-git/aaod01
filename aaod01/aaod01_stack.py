@@ -28,7 +28,7 @@ class Aaod01Stack(Stack):
                 iam.ManagedPolicy.from_aws_managed_policy_name(
                     "service-role/AmazonEC2ContainerServiceforEC2Role"),
                 iam.ManagedPolicy.from_aws_managed_policy_name(
-                    "/AmazonSSMManagedInstanceCore")
+                    "AmazonSSMManagedInstanceCore")
             ]
         )
 
@@ -43,12 +43,11 @@ class Aaod01Stack(Stack):
                                                           max_capacity=10,
                                                           )
 
-        cluster.add_asg_capacity_provider(ecs.AsgCapacityProvider(self, "AsgCapacityProvider", capacity_provider_name="Aaod01",
-                                                                  auto_scaling_group=auto_scaling_group,
-                                                                  enable_managed_scaling=True))
+        capacity_provider = ecs.AsgCapacityProvider(self, "AsgCapacityProvider", capacity_provider_name="Aaod01",
+                                                    auto_scaling_group=auto_scaling_group,
+                                                    enable_managed_scaling=True)
 
-        task_role = iam.Role.from_role_name(
-            self, "EcsTaskExecutionRole", role_name="ecsTaskExecutionRole")
+        cluster.add_asg_capacity_provider(capacity_provider)
 
         ecs_patterns.ApplicationLoadBalancedFargateService(self, "FargateService01",
                                                            service_name="FargateService01",
@@ -62,15 +61,24 @@ class Aaod01Stack(Stack):
                                                            )
                                                            )
 
-        ecs_patterns.ApplicationLoadBalancedEc2Service(self, "EC2Service01",
-                                                       service_name="EC2Service01",
-                                                       cluster=cluster,
-                                                       memory_limit_mib=1024,
-                                                       desired_count=3,
-                                                       cpu=512,
-                                                       task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                                                           image=ecs.ContainerImage.from_registry(
-                                                               "amazon/amazon-ecs-sample"),
-                                                           task_role=task_role
-                                                       )
-                                                       )
+        task_role = iam.Role.from_role_name(
+            self, "EcsTaskExecutionRole", role_name="ecsTaskExecutionRole")
+
+        task_definition = ecs.Ec2TaskDefinition(self, "TaskDef")
+
+        task_definition.add_container("web",
+                                      image=ecs.ContainerImage.from_registry(
+                                          "amazon/amazon-ecs-sample"),
+                                      memory_reservation_mib=256
+                                      )
+
+        ecs.Ec2Service(self, "EC2Service",
+                       cluster=cluster,
+                       task_definition=task_definition,
+                       desired_count=3,
+                       capacity_provider_strategies=[ecs.CapacityProviderStrategy(
+                           capacity_provider=capacity_provider.capacity_provider_name,
+                           weight=1
+                       )
+                       ]
+                       )
