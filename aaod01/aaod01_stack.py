@@ -14,22 +14,21 @@ class Aaod01Stack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        vpc = ec2.Vpc(self, "VPC",
-                      vpc_name="Aaod01",
-                      cidr="10.0.0.0/16")
+        vpc = ec2.Vpc.from_lookup(self, "VPC", vpc_name="Aaod01")
 
         cluster = ecs.Cluster(self, "Cluster",
                               cluster_name="Aaod01",
                               vpc=vpc)
 
-        role = iam.Role(
+        container_instance_role = iam.Role(
             self, "ECSInstanceRole",
+            role_name="Aaod01ECSInstanceRole",
             assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
             managed_policies=[
                 iam.ManagedPolicy.from_aws_managed_policy_name(
                     "service-role/AmazonEC2ContainerServiceforEC2Role"),
                 iam.ManagedPolicy.from_aws_managed_policy_name(
-                    "service-role/AmazonEC2RoleforSSM")
+                    "/AmazonSSMManagedInstanceCore")
             ]
         )
 
@@ -38,7 +37,7 @@ class Aaod01Stack(Stack):
                                                           vpc=vpc,
                                                           instance_type=ec2.InstanceType(
                                                               "t2.micro"),
-                                                          role=role,
+                                                          role=container_instance_role,
                                                           machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
                                                           min_capacity=0,
                                                           max_capacity=10,
@@ -47,6 +46,9 @@ class Aaod01Stack(Stack):
         cluster.add_asg_capacity_provider(ecs.AsgCapacityProvider(self, "AsgCapacityProvider", capacity_provider_name="Aaod01",
                                                                   auto_scaling_group=auto_scaling_group,
                                                                   enable_managed_scaling=True))
+
+        task_role = iam.Role.from_role_name(
+            self, "EcsTaskExecutionRole", role_name="ecsTaskExecutionRole")
 
         ecs_patterns.ApplicationLoadBalancedFargateService(self, "FargateService01",
                                                            service_name="FargateService01",
@@ -68,6 +70,7 @@ class Aaod01Stack(Stack):
                                                        cpu=512,
                                                        task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
                                                            image=ecs.ContainerImage.from_registry(
-                                                               "amazon/amazon-ecs-sample")
+                                                               "amazon/amazon-ecs-sample"),
+                                                           task_role=task_role
                                                        )
                                                        )
