@@ -61,9 +61,6 @@ class Aaod01Stack(Stack):
                                                            )
                                                            )
 
-        task_role = iam.Role.from_role_name(
-            self, "EcsTaskExecutionRole", role_name="ecsTaskExecutionRole")
-
         task_definition = ecs.Ec2TaskDefinition(self, "TaskDef")
 
         task_definition.add_container("web",
