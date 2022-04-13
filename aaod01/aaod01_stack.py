@@ -1,10 +1,12 @@
+from unicodedata import name
 from aws_cdk import (
     Stack,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
     aws_autoscaling as autoscaling,
     aws_ec2 as ec2,
-    aws_iam as iam
+    aws_iam as iam,
+    aws_applicationautoscaling as appscaling
 )
 from constructs import Construct
 
@@ -19,6 +21,31 @@ class Aaod01Stack(Stack):
         cluster = ecs.Cluster(self, "Cluster",
                               cluster_name="Aaod01",
                               vpc=vpc)
+
+        fargate_service = ecs_patterns.ApplicationLoadBalancedFargateService(self, "FargateService01",
+                                                                             service_name="FargateService01",
+                                                                             cluster=cluster,
+                                                                             memory_limit_mib=1024,
+                                                                             desired_count=3,
+                                                                             cpu=512,
+                                                                             task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
+                                                                                 image=ecs.ContainerImage.from_registry(
+                                                                                     "amazon/amazon-ecs-sample")
+                                                                             )
+                                                                             )
+
+        farget_service_target = appscaling.ScalableTarget(self, "FargateService01Target",
+                                                          max_capacity=20,
+                                                          min_capacity=3,
+                                                          scalable_dimension="ecs:service:DesiredCount",
+                                                          service_namespace=appscaling.ServiceNamespace.ECS,
+                                                          resource_id="service/"+cluster.cluster_name+"/"+fargate_service.service.service_name)
+
+        appscaling.TargetTrackingScalingPolicy(self, "FargateService01TargetTrackingPolicy",
+                                               policy_name="Aaod01FargateService01",
+                                               scaling_target=farget_service_target,
+                                               predefined_metric=appscaling.PredefinedMetric.ECS_SERVICE_AVERAGE_CPU_UTILIZATION,
+                                               target_value=70)
 
         container_instance_role = iam.Role(
             self, "ECSInstanceRole",
@@ -48,18 +75,6 @@ class Aaod01Stack(Stack):
                                                     enable_managed_scaling=True)
 
         cluster.add_asg_capacity_provider(capacity_provider)
-
-        ecs_patterns.ApplicationLoadBalancedFargateService(self, "FargateService01",
-                                                           service_name="FargateService01",
-                                                           cluster=cluster,
-                                                           memory_limit_mib=1024,
-                                                           desired_count=3,
-                                                           cpu=512,
-                                                           task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                                                               image=ecs.ContainerImage.from_registry(
-                                                                   "amazon/amazon-ecs-sample")
-                                                           )
-                                                           )
 
         task_definition = ecs.Ec2TaskDefinition(self, "TaskDef")
 
