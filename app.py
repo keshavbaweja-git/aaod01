@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+import os
+
 import aws_cdk as cdk
 
 from aaod01.aaod01_stack import Aaod01Stack
 from aaod01.aaod01_vpc_stack import Aaod01VpcStack
 
-account = 'X'
+account = os.getenv("CDK_ACCOUNT_ID")
 region = 'us-west-2'
 
 app = cdk.App()
